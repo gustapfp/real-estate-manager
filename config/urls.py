@@ -39,6 +39,7 @@ urlpatterns += [
         SpectacularSwaggerView.as_view(url_name="api-schema"),
         name="api-docs",
     ),
+    path("api/real-estate/", include("real_state_manager.real_estate.urls")),
 ]
 
 if settings.DEBUG:
