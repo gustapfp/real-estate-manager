@@ -9,6 +9,7 @@ from real_state_manager.guests.models import Guest
 from real_state_manager.real_estate.api.serializers import PropertySerializer
 from real_state_manager.real_estate.api.serializers import ReservationSerializer
 from real_state_manager.real_estate.api.serializers import ReservationUpdateSerializer
+from real_state_manager.real_estate.api.utils import helper
 from real_state_manager.real_estate.models import Property
 from real_state_manager.real_estate.models import Reservation
 
@@ -91,19 +92,26 @@ class ReservationView(APIView):
         """
         try:
             guest = Guest.objects.get(cpf=cpf)
-            if not guest:
-                logger.error("Guest not found", cpf=cpf)
-                return Response(status=status.HTTP_404_NOT_FOUND)
 
             serializer = ReservationSerializer(data=request.data)
-            if serializer.is_valid():
+            if serializer.is_valid() and helper.is_available_to_rent(
+                request.data["property"],
+                request.data["check_in"],
+                request.data["check_out"],
+            ):
                 serializer.save(guest=guest)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-            logger.error(
-                "Invalid data for reservation creation",
-                errors=serializer.errors,
+            logger.warning(
+                "Property is not available to rent",
+                property_id=request.data["property"],
+                check_in=request.data["check_in"],
+                check_out=request.data["check_out"],
+                guest_cpf=cpf,
             )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Guest.DoesNotExist:
+            logger.exception("Guest not found", cpf=cpf)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.exception("Unable to create reservation", error=e)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
